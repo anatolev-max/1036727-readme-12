@@ -3,7 +3,11 @@
 require_once('init.php');
 
 if (!isset($_SESSION['user'])) {
-    header('Location: /index.php');
+    $url = $_SERVER['REQUEST_URI'] ?? '/search.php';
+    $expires = strtotime('+30 days');
+    setcookie('login_ref', $url, $expires);
+
+    header('Location: /');
     exit;
 }
 
@@ -29,6 +33,7 @@ if (substr($search, 0, 1) === '#') {
 
     foreach (explode(' ', $search) as $search_word) {
         $search_word = ltrim($search_word, '+-<>');
+        $search_word = rtrim($search_word, '+-<>*');
         if (mb_strlen($search_word) >= 3) {
             $search_words[] = "{$search_word}*";
         }

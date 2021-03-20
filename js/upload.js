@@ -23,7 +23,7 @@ input.addEventListener('change', function () {
                 <div class="${formName}__image-wrapper form__file-wrapper">
                     <img class="form__image" src="${reader.result}" alt="${file.name}" data-dz-thumbnail="">
                 </div>
-                <div class="${formName}__file-data form__file-data">
+                <div style="max-width: 361px;" class="${formName}__file-data form__file-data">
                     <span class="${formName}__file-name form__file-name dz-filename" data-dz-name="">${file.name}</span>
                     <button class="${formName}__delete-button form__delete-button button" type="button" data-dz-remove="">
                         <span>Удалить</span>

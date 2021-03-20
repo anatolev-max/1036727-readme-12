@@ -3,7 +3,11 @@
 require_once('init.php');
 
 if (!isset($_SESSION['user'])) {
-    header('Location: /index.php');
+    $url = $_SERVER['REQUEST_URI'] ?? '/post.php';
+    $expires = strtotime('+30 days');
+    setcookie('login_ref', $url, $expires);
+
+    header('Location: /');
     exit;
 }
 
@@ -12,7 +16,8 @@ $user_id = intval($_SESSION['user']['id']);
 $post_id = intval(filter_input(INPUT_GET, 'id'));
 $post_id = validate_post($link, $post_id);
 
-$sql = 'SELECT i.* FROM input i '
+$input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+$sql = "SELECT $input_fields FROM input i "
      . 'INNER JOIN form_input fi ON fi.input_id = i.id '
      . 'INNER JOIN form f ON f.id = fi.form_id '
      . "WHERE f.name = 'comments'";
@@ -56,23 +61,29 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !isset($_COOKIE['like'])) {
     setcookie('like', '', time() - 3600);
 }
 
-$sql = 'SELECT p.*, u.dt_add AS dt_reg, u.login AS author, u.avatar_path, ct.class_name FROM post p '
+$post_fields = get_post_fields('p.');
+$user_fields = 'u.dt_add AS dt_reg, u.login AS author, u.avatar_path';
+$sql = "SELECT {$post_fields}, {$user_fields}, ct.class_name FROM post p "
      . 'INNER JOIN user u ON u.id = p.author_id '
      . 'INNER JOIN content_type ct ON ct.id = p.content_type_id '
      . "WHERE p.id = $post_id";
 $post = get_mysqli_result($link, $sql, 'assoc');
 $post['display_mode'] = 'details';
 
-$sql = 'SELECT * FROM hashtag h '
+$sql = 'SELECT h.id, h.name FROM hashtag h '
      . 'INNER JOIN post_hashtag ph ON ph.hashtag_id = h.id '
      . 'INNER JOIN post p ON p.id = ph.post_id '
      . "WHERE p.id = $post_id";
 $hashtags = get_mysqli_result($link, $sql);
 
-$sql = 'SELECT c.*, u.login, u.avatar_path FROM comment c '
+$comments = filter_input(INPUT_GET, 'comments');
+$limit = !$comments || $comments !== 'all' ? ' LIMIT 2' : '';
+
+$comment_fields = 'c.id, c.dt_add, c.content, c.author_id, c.post_id';
+$sql = "SELECT {$comment_fields}, u.login, u.avatar_path FROM comment c "
      . 'INNER JOIN user u ON u.id = c.author_id '
      . "WHERE post_id = $post_id "
-     . 'ORDER BY c.dt_add DESC';
+     . "ORDER BY c.dt_add DESC{$limit}";
 $comments = get_mysqli_result($link, $sql);
 
 $page_content = include_template('post.php', [

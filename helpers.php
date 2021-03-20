@@ -198,14 +198,16 @@ function embed_youtube_video($youtube_url)
  * @param string $youtube_url Ссылка на youtube видео
  * @return string
  */
-function embed_youtube_cover($youtube_url)
+function embed_youtube_cover($youtube_url, bool $style = false)
 {
     $res = "";
     $id = extract_youtube_id($youtube_url);
 
     if ($id) {
         $src = sprintf("https://img.youtube.com/vi/%s/mqdefault.jpg", $id);
-        $res = '<img alt="youtube cover" width="320" height="120" src="' . $src . '" />';
+        $style = $style ? 'width: 109px; height: 109px; object-fit: cover; '
+               . 'border-top-right-radius: 30px; border-bottom-right-radius: 30px;' : '';
+        $res = '<img style="' . $style . '"alt="youtube cover" width="320" height="120" src="' . $src . '" />';
     }
 
     return $res;

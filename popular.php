@@ -3,11 +3,15 @@
 require_once('init.php');
 
 if (!isset($_SESSION['user'])) {
-    header('Location: /index.php');
+    $url = $_SERVER['REQUEST_URI'] ?? '/popular.php';
+    $expires = strtotime('+30 days');
+    setcookie('login_ref', $url, $expires);
+
+    header('Location: /');
     exit;
 }
 
-$sql = 'SELECT * FROM content_type';
+$sql = 'SELECT id, type_name, class_name, icon_width, icon_height FROM content_type';
 $content_types = get_mysqli_result($link, $sql);
 
 $sort_fields = ['popular', 'likes', 'date'];
@@ -89,7 +93,9 @@ if ($current_page <= 0) {
 
 $offset = ($current_page - 1) * $page_items;
 
-$sql = 'SELECT p.*, COUNT(pl.id), u.login AS author, u.avatar_path, ct.class_name FROM post p '
+$post_fields = get_post_fields('p.');
+$user_fields = 'u.login AS author, u.avatar_path';
+$sql = "SELECT COUNT(pl.id), {$post_fields}, {$user_fields}, ct.class_name FROM post p "
      . 'LEFT JOIN user u ON u.id = p.author_id '
      . 'LEFT JOIN content_type ct ON ct.id = p.content_type_id '
      . 'LEFT JOIN post_like pl ON pl.post_id = p.id '

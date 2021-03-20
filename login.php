@@ -7,7 +7,8 @@ if (isset($_SESSION['user'])) {
     exit;
 }
 
-$sql = 'SELECT i.*, f.name AS form FROM input i '
+$input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+$sql = "SELECT {$input_fields}, f.name AS form FROM input i "
      . 'INNER JOIN form_input fi ON fi.input_id = i.id '
      . 'INNER JOIN form f ON f.id = fi.form_id '
      . "WHERE f.name = 'login'";
@@ -37,13 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $email = mysqli_real_escape_string($link, $input['email']);
 
-        $sql = "SELECT * FROM user WHERE email = '$email';";
+        $user_fields = 'id, dt_add, email, login, password, avatar_path';
+        $sql = "SELECT $user_fields FROM user WHERE email = '$email';";
         $user = get_mysqli_result($link, $sql, 'assoc');
 
         if ($user && password_verify($input['password'], $user['password'])) {
             $_SESSION['user'] = $user;
+            $url = $_COOKIE['login_ref'] ?? '/feed.php';
+            setcookie('login_ref', '', time() - 3600);
 
-            header('Location: /feed.php');
+            header("Location: $url");
             exit;
 
         } else {

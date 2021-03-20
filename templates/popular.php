@@ -66,7 +66,7 @@
         <article class="popular__post post post-<?= esc($post['class_name']) ?>">
             <header class="post__header">
                 <h2 style="padding-bottom: 24px;">
-                    <a href="/post.php?id=<?= $post['id'] ?>"><?= esc($post['title']) ?></a>
+                    <a href="/post.php?id=<?= esc($post['id']) ?>"><?= esc($post['title']) ?></a>
                 </h2>
             </header>
             <div class="post__main">
@@ -97,7 +97,7 @@
                         </div>
                         <div class="post__info">
                             <b class="post__author-name"><?= esc($post['author']) ?></b>
-                            <time class="post__time" datetime="<?= esc($post['dt_add']) ?>" title="<?= get_time_title($post['dt_add']) ?>"><?= get_relative_time($post['dt_add']) ?> назад</time>
+                            <time class="post__time" datetime="<?= get_datetime_value($post['dt_add']) ?>" title="<?= get_time_title($post['dt_add']) ?>"><?= get_relative_time($post['dt_add']) ?> назад</time>
                         </div>
                     </a>
                 </div>
@@ -113,7 +113,7 @@
                             <span><?= get_likes_count($link, $post['id']) ?></span>
                             <span class="visually-hidden">количество лайков</span>
                         </a>
-                        <a class="post__indicator post__indicator--comments button" href="#" title="Комментарии">
+                        <a class="post__indicator post__indicator--comments button" href="/post.php?id=<?= esc($post['id']) ?>#form" title="Комментарии">
                             <svg class="post__indicator-icon" width="19" height="17">
                                 <use xlink:href="#icon-comment"></use>
                             </svg>

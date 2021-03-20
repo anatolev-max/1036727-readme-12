@@ -4,5 +4,5 @@ session_start();
 
 $_SESSION = [];
 
-header('Location: /index.php');
+header('Location: /');
 exit;

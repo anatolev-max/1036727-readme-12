@@ -126,7 +126,7 @@ INSERT INTO post (title, text_content, quote_author, image_path, link, author_id
 ('Игра престолов', 'Не могу дождаться начала финального сезона своего любимого сериала!', null, null, null, 2, 3),
 ('Наконец, обработал фотки!', null, null, 'rock-default.jpg', null, 3, 1),
 ('Моя мечта', null, null, 'rock-default.jpg', null, 1, 1),
-('Лучшие курсы', null, null, null, 'www.htmlacademy.ru', 2, 5);
+('Лучшие курсы', 'Интерактивные онлайн-курсы HTML Academy', null, null, 'https://htmlacademy.ru', 2, 5);
 
 -- --------------------------------------------------------
 

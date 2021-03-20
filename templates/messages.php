@@ -21,7 +21,7 @@
                         <div class="messages__preview">
                             <?php if (!is_new_contact($link, $contact['id'])): ?>
                             <p class="messages__preview-text"><?= get_message_preview($link, $contact['id']) ?></p>
-                            <time class="messages__preview-time" datetime="<?= esc($contact['MAX(m.dt_add)']) ?>"><?= date('M j', strtotime($contact['MAX(m.dt_add)'])) ?></time>
+                            <time class="messages__preview-time" datetime="<?= get_datetime_value($contact['MAX(m.dt_add)']) ?>"><?= date('M j', strtotime($contact['MAX(m.dt_add)'])) ?></time>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -36,7 +36,7 @@
         <div class="messages__chat-wrapper">
             <?php foreach ($contacts as $contact): ?>
             <?php $messages = get_contact_messages($link, $contact['id']); ?>
-            <?php $classname = isset($_GET['contact']) && $_GET['contact'] === $contact['id'] ? ' tabs__content--active' : ''; ?>
+            <?php $classname = $_GET['contact'] === $contact['id'] ? ' tabs__content--active' : ''; ?>
             <ul class="messages__list tabs__content<?= $classname ?>">
                 <?php foreach ($messages as $message): ?>
                 <?php $classname = $message['sender_id'] === $_SESSION['user']['id'] ? ' messages__item--my' : ''; ?>
@@ -52,7 +52,7 @@
                         </a>
                         <div class="messages__item-info">
                             <a class="messages__author" href="/profile.php?id=<?= esc($message['sender_id']) ?>&tab=posts"><?= esc($message['author']) ?></a>
-                            <time class="messages__time" datetime="<?= esc($message['dt_add']) ?>"><?= get_relative_time($message['dt_add']) ?> назад</time>
+                            <time class="messages__time" datetime="<?= get_datetime_value($message['dt_add']) ?>"><?= get_relative_time($message['dt_add']) ?> назад</time>
                         </div>
                     </div>
                     <p class="messages__text"><?= esc($message['content']) ?></p>
@@ -61,13 +61,14 @@
             </ul>
             <?php endforeach; ?>
         </div>
-        <?php if (isset($_GET['contact']) && get_subscription_status($link, $_GET['contact'])): ?>
+        <?php if (is_contact_valid($link)): ?>
         <div style="margin-top: auto;" class="comments">
-            <form class="comments__form form" action="/messages.php?contact=<?= esc($_GET['contact'] ?? '') ?>" method="post">
+            <?php if (isset($inputs['message'])): ?>
+            <form class="comments__form form" action="/messages.php?contact=<?= esc($_GET['contact']) ?>" method="post">
                 <div class="comments__my-avatar">
                     <?php if (!empty($_SESSION['user']['avatar_path'])): ?>
                     <?php $style = 'width: 40px; height: 40px; object-fit: cover;'; ?>
-                    <img class="comments__picture" src="uploads/<?= esc($_SESSION['user']['avatar_path']) ?>" width="40" height="40" alt="Аватар пользователя">
+                    <img style="<?= $style ?>" class="comments__picture" src="uploads/<?= esc($_SESSION['user']['avatar_path']) ?>" width="40" height="40" alt="Аватар пользователя">
                     <?php endif; ?>
                 </div>
                 <?php $input = $inputs['message'] ?>
@@ -78,12 +79,13 @@
                     <button class="form__error-button button" type="button">!</button>
                     <div class="form__error-text">
                         <h3 class="form__error-title"><?= esc($input['label']) ?></h3>
-                        <p class="form__error-desc"><?= isset($errors[$input['name']][0]) ? $errors[$input['name']][0] : '' ?></p>
+                        <p class="form__error-desc"><?= esc($errors[$input['name']][0] ?? '') ?></p>
                     </div>
                 </div>
                 <input type="hidden" name="contact-id" value="<?= esc($_GET['contact'] ?? '') ?>">
                 <button class="comments__submit button button--green" type="submit">Отправить</button>
             </form>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
         <?php endif; ?>

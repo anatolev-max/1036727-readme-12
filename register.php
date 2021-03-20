@@ -7,7 +7,8 @@ if (isset($_SESSION['user'])) {
     exit;
 }
 
-$sql = 'SELECT i.*, f.name AS form FROM input i '
+$input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+$sql = "SELECT {$input_fields}, f.name AS form FROM input i "
      . 'INNER JOIN form_input fi ON fi.input_id = i.id '
      . 'INNER JOIN form f ON f.id = fi.form_id '
      . "WHERE f.name = 'registration'";
@@ -21,6 +22,14 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = get_post_input($link, 'registration');
     $mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+
+    $required_fields = get_required_fields($link, 'registration');
+    foreach ($required_fields as $field) {
+        if (mb_strlen($input[$field]) === 0) {
+            $errors[$field][0] = 'Это поле должно быть заполнено';
+            $errors[$field][1] = $form_inputs[$field]['label'];
+        }
+    }
 
     if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
         $errors['email'][0] = 'E-mail введён некорректно';
@@ -45,10 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!empty($_FILES['avatar']['name'])) {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $file_path = $_FILES['avatar']['tmp_name'];
         $file_size = $_FILES['avatar']['size'];
-        $file_type = finfo_file($finfo, $file_path);
+        $file_type = mime_content_type($file_path);
 
         if (!in_array($file_type, $mime_types)) {
             $errors['avatar'][0] = 'Неверный MIME-тип файла';
@@ -61,14 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $file_extension = explode('/', $file_type);
             $file_name .= ".{$file_extension[1]}";
             $input['avatar'] = $file_name;
-        }
-    }
-
-    $required_fields = get_required_fields($link, 'registration');
-    foreach ($required_fields as $field) {
-        if (mb_strlen($input[$field]) === 0) {
-            $errors[$field][0] = 'Это поле должно быть заполнено';
-            $errors[$field][1] = $form_inputs[$field]['label'];
         }
     }
 

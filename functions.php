@@ -30,7 +30,7 @@ function update_errors_log(mysqli $link, string $sql, string $filename) : void {
     file_put_contents($filename, $data, FILE_APPEND | LOCK_EX);
 }
 
-function get_text_content(string $text, int $post_id, string $style = '', int $num_letters = 300) : string {
+function crop_text_content(string $text, int $post_id, string $style = '', int $num_letters = 300) : string {
     $style = $style ? " style=\"{$style}\"" : '';
     $text_length = mb_strlen($text);
 
@@ -46,7 +46,7 @@ function get_text_content(string $text, int $post_id, string $style = '', int $n
                 break;
             }
 
-            $result_words_length += 1; // +1 пробельный символ
+            $result_words_length += 1;
             $result_words[] = $word;
         }
 
@@ -105,10 +105,9 @@ function get_relative_time(string $date) : string {
 }
 
 function get_time_title(string $date) : string {
+    $title = '';
 
-    if (!$ts = strtotime($date)) {
-        $title = '';
-    } else {
+    if ($ts = strtotime($date)) {
         $title = date('d.m.Y H:i', $ts);
     }
 
@@ -172,7 +171,7 @@ function get_adding_post_close_url() : string {
 }
 
 function is_content_type_valid(mysqli $link, string $type) : bool {
-    $sql = 'SELECT * FROM content_type';
+    $sql = 'SELECT class_name FROM content_type';
     $content_types = get_mysqli_result($link, $sql);
     $class_names = array_column($content_types, 'class_name');
 
@@ -180,7 +179,7 @@ function is_content_type_valid(mysqli $link, string $type) : bool {
 }
 
 function validate_content_type(mysqli $link, string $type) : void {
-    $sql = 'SELECT * FROM content_type';
+    $sql = 'SELECT class_name FROM content_type';
     $content_types = get_mysqli_result($link, $sql);
     $class_names = array_column($content_types, 'class_name');
 
@@ -191,14 +190,37 @@ function validate_content_type(mysqli $link, string $type) : void {
 }
 
 function get_post_input(mysqli $link, string $form) : array {
-    $sql = 'SELECT i.* FROM input i '
-         . 'INNER JOIN form_input fi ON fi.input_id = i.id '
-         . 'INNER JOIN form f ON f.id = fi.form_id '
-         . "WHERE f.name = '$form'";
-    $form_inputs = get_mysqli_result($link, $sql);
-    $input_names = array_column($form_inputs, 'name');
+    $input_names = [
+        'adding-post' => [
+            'heading',
+            'image-url',
+            'video-url',
+            'post-text',
+            'cite-text',
+            'quote-author',
+            'post-link',
+            'tags',
+            'file-photo',
+            'content-type'
+        ],
+        'registration' => [
+            'email',
+            'login',
+            'password',
+            'password-repeat',
+            'avatar'
+        ],
+        'login' => ['email', 'password'],
+        'comments' => ['comment', 'post-id'],
+        'messages' => ['message', 'contact-id']
+    ];
 
-    foreach ($input_names as $name) {
+    if (!isset($input_names[$form])) {
+        http_response_code(500);
+        exit;
+    }
+
+    foreach ($input_names[$form] as $name) {
         $input[$name] = filter_input(INPUT_POST, $name);
         $input[$name] = is_null($input[$name]) ? null : trim($input[$name]);
     }
@@ -212,16 +234,17 @@ function get_post_input(mysqli $link, string $form) : array {
 }
 
 function get_content_type_id(mysqli $link, string $content_type) : string {
-    validate_content_type($link, $input['content-type']);
+    validate_content_type($link, $content_type);
 
-    $sql = "SELECT * FROM content_type WHERE class_name = '$content_type'";
-    $result = get_mysqli_result($link, $sql, 'assoc');
+    $sql = "SELECT id FROM content_type WHERE class_name = '$content_type'";
+    $content_type_id = get_mysqli_result($link, $sql, 'assoc')['id'];
 
-    return $result['id'];
+    return $content_type_id;
 }
 
 function get_required_fields(mysqli $link, string $form, string $tab = '') : array {
-    $sql = 'SELECT i.* FROM input i '
+    $input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+    $sql = "SELECT $input_fields FROM input i "
          . 'INNER JOIN form_input fi ON fi.input_id = i.id '
          . 'INNER JOIN form f ON f.id = fi.form_id '
          . "WHERE f.name = '$form' AND i.required = 1";
@@ -232,13 +255,14 @@ function get_required_fields(mysqli $link, string $form, string $tab = '') : arr
 }
 
 function get_stmt_data(array $input, int $content_type_id) : array {
-    $values = ['heading', 'text-content', 'quote-author', 'image-path', 'video-url', 'post-link'];
-    foreach ($values as $value) {
-        if (array_key_exists($value, $input)) {
-            $stmt_data[] = $input[$value];
-        } else {
-            return false;
+    $keys = ['heading', 'text-content', 'quote-author', 'image-path', 'video-url', 'post-link'];
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $input)) {
+            http_response_code(500);
+            exit;
         }
+
+        $stmt_data[] = $input[$key];
     }
 
     $stmt_data[] = $_SESSION['user']['id'];
@@ -351,9 +375,11 @@ function get_publication_count(mysqli $link, int $user_id, bool $numeric_value =
 }
 
 function get_search_sql(string $value, bool $hashtag_mode = false) : string {
+    $post_fields = get_post_fields('p.');
+    $user_fields = 'u.login AS author, u.avatar_path';
 
     if ($hashtag_mode === true) {
-        $sql = 'SELECT p.*, u.login AS author, u.avatar_path, ct.class_name FROM post p '
+        $sql = "SELECT {$post_fields}, {$user_fields}, ct.class_name FROM post p "
              . 'INNER JOIN user u ON u.id = p.author_id '
              . 'INNER JOIN content_type ct ON ct.id = p.content_type_id '
              . 'INNER JOIN post_hashtag ph ON ph.post_id = p.id '
@@ -361,7 +387,7 @@ function get_search_sql(string $value, bool $hashtag_mode = false) : string {
              . "WHERE h.name = '$value' "
              . 'ORDER BY p.dt_add DESC';
     } else {
-        $sql = 'SELECT p.*, u.login AS author, u.avatar_path, ct.class_name, '
+        $sql = "SELECT {$post_fields}, {$user_fields}, ct.class_name, "
              . "MATCH (p.title, p.text_content) AGAINST ('$value') AS score FROM post p "
              . 'INNER JOIN user u ON u.id = p.author_id '
              . 'INNER JOIN content_type ct ON ct.id = p.content_type_id '
@@ -373,7 +399,7 @@ function get_search_sql(string $value, bool $hashtag_mode = false) : string {
 }
 
 function get_post_hashtags(mysqli $link, int $post_id) : array {
-    $sql = 'SELECT * FROM hashtag h '
+    $sql = 'SELECT h.id, h.name FROM hashtag h '
          . 'INNER JOIN post_hashtag ph ON ph.hashtag_id = h.id '
          . 'INNER JOIN post p ON p.id = ph.post_id '
          . "WHERE p.id = $post_id";
@@ -383,10 +409,14 @@ function get_post_hashtags(mysqli $link, int $post_id) : array {
 }
 
 function get_post_comments(mysqli $link, int $post_id) : array {
-    $sql = 'SELECT c.*, u.login, u.avatar_path FROM comment c '
+    $comments = filter_input(INPUT_GET, 'show');
+    $limit = !$comments || $comments !== 'all' ? ' LIMIT 2' : '';
+
+    $comment_fields = 'c.id, c.dt_add, c.content, c.author_id, c.post_id';
+    $sql = "SELECT {$comment_fields}, u.login, u.avatar_path FROM comment c "
      . 'INNER JOIN user u ON u.id = c.author_id '
      . "WHERE post_id = $post_id "
-     . 'ORDER BY c.dt_add DESC';
+     . "ORDER BY c.dt_add DESC{$limit}";
     $comments = get_mysqli_result($link, $sql);
 
     return $comments;
@@ -394,8 +424,8 @@ function get_post_comments(mysqli $link, int $post_id) : array {
 
 function get_contact_messages(mysqli $link, int $contact_id) : array {
     $user_id = intval($_SESSION['user']['id']);
-
-    $sql = "SELECT u.login AS author, u.avatar_path, m.* FROM message m "
+    $message_fields = 'm.id, m.dt_add, m.content, m.status, m.sender_id, m.recipient_id';
+    $sql = "SELECT {$message_fields}, u.login AS author, u.avatar_path FROM message m "
      . "INNER JOIN user u ON u.id = m.sender_id "
      . "WHERE (m.recipient_id = $user_id AND m.sender_id = $contact_id) "
      . "OR (m.recipient_id = $contact_id AND m.sender_id = $user_id) "
@@ -407,7 +437,6 @@ function get_contact_messages(mysqli $link, int $contact_id) : array {
 
 function get_message_preview(mysqli $link, int $contact_id) : string {
     $user_id = intval($_SESSION['user']['id']);
-
     $sql = 'SELECT content, sender_id FROM message '
          . "WHERE (recipient_id = $user_id AND sender_id = $contact_id) "
          . "OR (recipient_id = $contact_id AND sender_id = $user_id) "
@@ -418,16 +447,13 @@ function get_message_preview(mysqli $link, int $contact_id) : string {
     return $message['sender_id'] == $user_id ? "Вы: $preview" : $preview;
 }
 
-function get_messages_count(mysqli $link, int $contact_id = null) : string {
+function get_messages_count(mysqli $link, int $contact_id = null, bool $unread = true) : string {
     $user_id = intval($_SESSION['user']['id']);
+    $read_filter = $unread ? ' AND status = 0' : '';
+    $contact_filter = isset($contact_id) ? " AND sender_id = $contact_id" : '';
 
-    if (isset($contact_id) && is_user_valid($link, $contact_id)) {
-        $sql = 'SELECT COUNT(id) FROM message '
-             . "WHERE sender_id = $contact_id AND recipient_id = $user_id AND status = 0";
-    } else {
-        $sql = "SELECT COUNT(id) FROM message WHERE recipient_id = $user_id AND status = 0";
-    }
-
+    $sql = 'SELECT COUNT(id) FROM message '
+         . "WHERE recipient_id = {$user_id}{$contact_filter}{$read_filter}";
     $messages_count = get_mysqli_result($link, $sql, 'assoc')['COUNT(id)'];
 
     return $messages_count;
@@ -450,7 +476,6 @@ function add_new_contact(mysqli $link, array &$contacts, int $contact_id) : bool
 
 function is_new_contact(mysqli $link, int $contact_id) : bool {
     $user_id = intval($_SESSION['user']['id']);
-
     $sql = 'SELECT id FROM message '
          . "WHERE (recipient_id = $user_id AND sender_id = $contact_id) "
          . "OR (recipient_id = $contact_id AND sender_id = $user_id)";
@@ -461,20 +486,303 @@ function is_new_contact(mysqli $link, int $contact_id) : bool {
 
 function update_messages_status(mysqli $link, int $contact_id) : void {
     $user_id = intval($_SESSION['user']['id']);
-
     $sql = 'UPDATE message SET status = 1 '
          . "WHERE sender_id = $contact_id AND recipient_id = $user_id";
     get_mysqli_result($link, $sql, false);
 }
 
 function get_messages_chat_style(array $contacts) : string {
+    $style = 'padding-top: 0; border: none;';
 
     if (!empty($contacts)) {
-        $style = 'display: flex; flex-direction: column; align-self: stretch; '
-               . 'min-height: 343px; margin-bottom: -30px;';
-    } else {
-        $style = 'padding-top: 0; border: none;';
+        $style = 'display: flex; flex-direction: column; align-self: stretch; ';
+        $style .= 'min-height: 343px; margin-bottom: -30px;';
     }
 
     return $style;
+}
+
+function get_origin_post(mysqli $link, int $post_id) : array {
+    $sql = 'SELECT p.dt_add, u.id AS author_id, u.login AS author, '
+         . 'u.avatar_path FROM post p '
+         . 'INNER JOIN user u ON u.id = p.author_id '
+         . "WHERE p.id = $post_id";
+    $post = get_mysqli_result($link, $sql, 'assoc');
+
+    return $post;
+}
+
+function get_post_header_h2_style(array $post) : string {
+    $style = '';
+
+    if ($post['class_name'] === 'text' && $post['is_repost']) {
+        $style = 'padding: 29px 40px 26px; padding-top: 4px;';
+    } elseif ($post['class_name'] === 'text') {
+        $style = 'padding: 29px 40px 26px;';
+    } elseif ($post['is_repost']) {
+        $style = 'padding-top: 4px;';
+    }
+
+    return $style;
+}
+
+function get_post_main_style(mysqli $link, array $post) : string {
+    $cond1 = !$post['is_repost'] && empty($post['COUNT(c.id)']);
+    $sql = "SELECT COUNT(id) FROM post_hashtag WHERE post_id = {$post['id']}";
+    $cond2 = get_mysqli_result($link, $sql, 'assoc')['COUNT(id)'];
+    $style = '';
+
+    if ($cond1 && $cond2) {
+        $style = 'min-height: 67px;';
+    } elseif ($cond1) {
+        $style = 'min-height: 110px;';
+    }
+
+    return $style;
+}
+
+function get_datetime_value(string $date) : string {
+    $datetime = '';
+
+    if ($ts = strtotime($date)) {
+        $datetime = date('Y-m-d H:i', $ts);
+    }
+
+    return str_replace(' ', 'T', $datetime);
+}
+
+function is_contact_valid(mysqli $link, int $contact_id = null) : bool {
+    $contact_id = $contact_id ?? $_GET['contact'] ?? null;
+
+    if (!isset($contact_id)) {
+        return false;
+    }
+
+    $is_subscription = get_subscription_status($link, $contact_id);
+    $messages_count = get_messages_count($link, $contact_id, false);
+
+    return $is_subscription || $messages_count;
+}
+
+function add_prefix(&$item, $key, $prefix) {
+    $item = $prefix . $item;
+}
+
+function get_post_fields(string $prefix) : string {
+    $post_fields = [
+        'id',
+        'dt_add',
+        'title',
+        'text_content',
+        'quote_author',
+        'image_path',
+        'video_path',
+        'link',
+        'show_count',
+        'author_id',
+        'is_repost',
+        'origin_post_id',
+        'content_type_id'
+    ];
+    array_walk($post_fields, 'add_prefix', $prefix);
+
+    return implode(', ', $post_fields);
+}
+
+function validate_input_file_photo(array &$errors, array &$input) : void {
+    $mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $file_path = $_FILES['file-photo']['tmp_name'];
+    $file_size = $_FILES['file-photo']['size'];
+    $file_type = finfo_file($finfo, $file_path);
+
+    if (!in_array($file_type, $mime_types)) {
+        $errors['file-photo'][0] = 'Неверный MIME-тип файла';
+        $errors['file-photo'][1] = 'Изображение';
+    } elseif ($file_size > 1000000) {
+        $errors['file-photo'][0] = 'Максимальный размер файла: 1Мб';
+        $errors['file-photo'][1] = 'Изображение';
+    } else {
+        $file_name = uniqid();
+        $file_extension = explode('/', $file_type);
+        $file_name .= ".{$file_extension[1]}";
+        move_uploaded_file($file_path, 'uploads/' . $file_name);
+        $input['image-path'] = $file_name;
+    }
+}
+
+function validate_input_image_url(array &$errors, array &$input) : void {
+    $mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $file_name = uniqid();
+    $file_path = "uploads/{$file_name}.jpeg";
+
+    set_error_handler('exceptions_error_handler');
+    try {
+        $content = file_get_contents($input['image-url']);
+        file_put_contents($file_path, $content);
+        $file_type = finfo_file($finfo, $file_path);
+
+        if (!in_array($file_type, $mime_types)) {
+            unlink($file_path);
+            $errors['file-photo'][0] = 'Неверный MIME-тип файла';
+            $errors['file-photo'][1] = 'Изображение';
+        } elseif (filesize($file_path) > 1000000) {
+            unlink($file_path);
+            $errors['file-photo'][0] = 'Максимальный размер файла: 1Мб';
+            $errors['file-photo'][1] = 'Изображение';
+        } else {
+            $file_extension = explode('/', $file_type);
+            $file_name .= ".{$file_extension[1]}";
+            rename($file_path, 'uploads/' . $file_name);
+            $input['image-path'] = $file_name;
+        }
+
+    } catch (ErrorException $ex) {
+        $errors['file-photo'][0] = 'Вы не загрузили файл';
+        $errors['file-photo'][1] = 'Изображение';
+    }
+    restore_error_handler();
+}
+
+function validate_input_video_url(array &$errors, array &$input) : void {
+    if (strpos($input['video-url'], 'youtube.com/watch?v=') === false) {
+        $errors['video-url'][0] = 'Некорректный url-адрес';
+        $errors['video-url'][1] = 'Ссылка youtube';
+    }
+}
+
+function validate_link_info(array &$input) : void {
+    set_error_handler('exceptions_error_handler');
+
+    try {
+        $html = file_get_contents($input['post-link']);
+    } catch (ErrorException $ex) {
+        return;
+    }
+
+    restore_error_handler();
+    $doc = new DOMDocument();
+
+    libxml_use_internal_errors(true);
+    $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'utf-8');
+    $doc->loadHTML($html);
+    libxml_clear_errors();
+
+    $h1_elements = $doc->getElementsByTagName('h1');
+
+    if ($h1_elements->count() === 1) {
+        $h1_childs = $h1_elements->item(0)->childNodes;
+
+        if ($h1_childs->count() === 1
+            && $h1_childs->item(0)->nodeName === '#text') {
+            $h1 = trim($h1_elements->item(0)->nodeValue);
+        }
+    }
+
+    $title = $doc->getElementsByTagName('title')->item(0);
+    $title = !is_null($title) ? trim($title->nodeValue) : '';
+
+    $input['text-content'] = $h1 ?? $title;
+}
+
+function cmp($a, $b) {
+    $a = isset($a['sizes']) ? explode('x', $a['sizes'])[0] : '0';
+    $b = isset($b['sizes']) ? explode('x', $b['sizes'])[0] : '0';
+
+    if ($a == $b) {
+        return 0;
+    }
+    return ($a > $b) ? -1 : 1;
+}
+
+function get_icon_url(string $url) : string {
+    $url = parse_url($url, PHP_URL_HOST);
+    $url = "https://favicongrabber.com/api/grab/{$url}?pretty=true";
+
+    $curl_handle = curl_init();
+    curl_setopt($curl_handle, CURLOPT_URL, $url);
+    curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 2);
+    curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl_handle, CURLOPT_USERAGENT, 'Your application name');
+
+    do {
+        $response = curl_exec($curl_handle);
+        $http_code = curl_getinfo($curl_handle)['http_code'];
+        $http_error = $http_code >= 400 && $http_code !== 502;
+
+        if (!$response || $http_error) {
+            return '';
+        }
+
+    } while ($http_code === 502);
+
+    curl_close($curl_handle);
+    $response = json_decode($response, true)['icons'];
+    usort($response, 'cmp');
+
+    return $response[0]['src'] ?? '';
+}
+
+function validate_icon_file(array &$input) : void {
+    $icon_url = get_icon_url($input['post-link']);
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $file_name = uniqid();
+    $file_path = "uploads/{$file_name}.jpeg";
+
+    set_error_handler('exceptions_error_handler');
+    try {
+        $content = file_get_contents($icon_url);
+        file_put_contents($file_path, $content);
+        $file_type = finfo_file($finfo, $file_path);
+
+        $file_extension = explode('/', $file_type);
+        $file_name .= ".{$file_extension[1]}";
+        rename($file_path, 'uploads/' . $file_name);
+        $input['image-path'] = $file_name;
+
+    } catch (ErrorException $ex) {}
+    restore_error_handler();
+}
+
+function validate_input_post_link(array &$input) : void {
+    validate_link_info($input);
+    validate_icon_file($input);
+}
+
+function delete_file(string $filename) : void {
+    if (file_exists($filename)) {
+        unlink($filename);
+    }
+}
+
+function validate_hashtag(mysqli $link, string $hashtag, int $post_id) : void {
+    if (!$tag_name = ltrim($hashtag, '#')) {
+        return;
+    }
+
+    $tag_name = mysqli_real_escape_string($link, $tag_name);
+    $sql = "SELECT COUNT(*), id FROM hashtag WHERE name = '$tag_name'";
+    $hashtag = get_mysqli_result($link, $sql, 'assoc');
+    mysqli_query($link, 'START TRANSACTION');
+
+    if ($hashtag['COUNT(*)'] === '0') {
+        $sql = "INSERT INTO hashtag SET name = '$tag_name'";
+        $result1 = get_mysqli_result($link, $sql, false);
+        $hashtag_id = mysqli_insert_id($link);
+    } else {
+        $hashtag_id = $hashtag['id'];
+    }
+
+    $sql = "INSERT INTO post_hashtag (hashtag_id, post_id) VALUES ($hashtag_id, $post_id)";
+    $result2 = get_mysqli_result($link, $sql, false);
+
+    if (($result1 ?? true) && $result2) {
+        mysqli_query($link, 'COMMIT');
+    } else {
+        mysqli_query($link, 'ROLLBACK');
+    }
 }

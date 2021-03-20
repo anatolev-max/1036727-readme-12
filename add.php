@@ -4,18 +4,23 @@ require_once('vendor/autoload.php');
 require_once('init.php');
 
 if (!isset($_SESSION['user'])) {
-    header('Location: /index.php');
+    $url = $_SERVER['REQUEST_URI'] ?? '/add.php?tab=text';
+    $expires = strtotime('+30 days');
+    setcookie('login_ref', $url, $expires);
+
+    header('Location: /');
     exit;
 }
 
-$sql = 'SELECT * FROM content_type';
+$sql = 'SELECT id, type_name, class_name, icon_width, icon_height FROM content_type';
 $content_types = get_mysqli_result($link, $sql);
 $class_names = array_column($content_types, 'class_name');
 
 $tab = filter_input(INPUT_GET, 'tab') ?? 'photo';
 $tab = in_array($tab, $class_names) ? $tab : 'photo';
 
-$sql = 'SELECT i.*, f.name AS form FROM input i '
+$input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+$sql = "SELECT {$input_fields}, f.name AS form FROM input i "
      . 'INNER JOIN form_input fi ON fi.input_id = i.id '
      . 'INNER JOIN form f ON f.id = fi.form_id '
      . "WHERE f.name = 'adding-post'";
@@ -29,62 +34,19 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = get_post_input($link, 'adding-post');
 
+    $required_fields = get_required_fields($link, 'adding-post', $tab);
+    foreach ($required_fields as $field) {
+        if (mb_strlen($input[$field]) === 0) {
+            $errors[$field][0] = 'Это поле должно быть заполнено';
+            $errors[$field][1] = $form_inputs[$field]['label'];
+        }
+    }
+
     if ($input['content-type'] === 'photo') {
-        $mime_types = ['image/jpeg', 'image/png', 'image/gif'];
-
         if (!empty($_FILES['file-photo']['name'])) {
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $file_path = $_FILES['file-photo']['tmp_name'];
-            $file_size = $_FILES['file-photo']['size'];
-            $file_type = finfo_file($finfo, $file_path);
-
-            if (!in_array($file_type, $mime_types)) {
-                $errors['file-photo'][0] = 'Неверный MIME-тип файла';
-                $errors['file-photo'][1] = 'Изображение';
-            } elseif ($file_size > 1000000) {
-                $errors['file-photo'][0] = 'Максимальный размер файла: 1Мб';
-                $errors['file-photo'][1] = 'Изображение';
-            } else {
-                $file_name = uniqid();
-                $file_extension = explode('/', $file_type);
-                $file_name .= ".{$file_extension[1]}";
-                move_uploaded_file($file_path, 'uploads/' . $file_name);
-                $input['image-path'] = $file_name;
-            }
-
+            validate_input_file_photo($errors, $input);
         } elseif (filter_var($input['image-url'], FILTER_VALIDATE_URL)) {
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $file_name = uniqid();
-            $file_path = "uploads/{$file_name}.jpeg";
-
-            set_error_handler('exceptions_error_handler');
-            try {
-                $content = file_get_contents($input['image-url']);
-                file_put_contents($file_path, $content);
-                $file_type = finfo_file($finfo, $file_path);
-
-                if (!in_array($file_type, $mime_types)) {
-                    unlink($file_path);
-                    $errors['file-photo'][0] = 'Неверный MIME-тип файла';
-                    $errors['file-photo'][1] = 'Изображение';
-                } elseif (filesize($file_path) > 1000000) {
-                    unlink($file_path);
-                    $errors['file-photo'][0] = 'Максимальный размер файла: 1Мб';
-                    $errors['file-photo'][1] = 'Изображение';
-                } else {
-                    $file_extension = explode('/', $file_type);
-                    $file_name .= ".{$file_extension[1]}";
-                    rename($file_path, 'uploads/' . $file_name);
-                    $input['image-path'] = $file_name;
-                }
-
-            } catch (ErrorException $ex) {
-                $errors['file-photo'][0] = 'Вы не загрузили файл';
-                $errors['file-photo'][1] = 'Изображение';
-            }
-            restore_error_handler();
-
-
+            validate_input_image_url($errors, $input);
         } else {
             $errors['file-photo'][0] = 'Вы не загрузили файл';
             $errors['file-photo'][1] = 'Изображение';
@@ -92,11 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($input['content-type'] === 'video') {
         if (filter_var($input['video-url'], FILTER_VALIDATE_URL)) {
-            if (strpos($input['video-url'], 'youtube.com/watch?v=') === false) {
-                $errors['video-url'][0] = 'Некорректный url-адрес';
-                $errors['video-url'][1] = 'Ссылка youtube';
-            }
-
+            validate_input_video_url($errors, $input);
         } else {
             $errors['video-url'][0] = 'Некорректный url-адрес';
             $errors['video-url'][1] = 'Ссылка youtube';
@@ -109,17 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input['text-content'] = $input['cite-text'];
 
     } elseif ($input['content-type'] === 'link') {
-        if (!filter_var($input['post-link'], FILTER_VALIDATE_URL)) {
+        if (filter_var($input['post-link'], FILTER_VALIDATE_URL)) {
+            validate_input_post_link($input);
+        } else {
             $errors['post-link'][0] = 'Некорректный url-адрес';
             $errors['post-link'][1] = 'Ссылка';
-        }
-    }
-
-    $required_fields = get_required_fields($link, 'adding-post', $tab);
-    foreach ($required_fields as $field) {
-        if (mb_strlen($input[$field]) === 0) {
-            $errors[$field][0] = 'Это поле должно быть заполнено';
-            $errors[$field][1] = $form_inputs[$field]['label'];
         }
     }
 
@@ -135,39 +87,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $post_id = mysqli_insert_id($link);
 
             if ($tags = array_filter(explode(' ', $input['tags']))) {
-
                 foreach ($tags as $tag_name) {
-
-                    if (!$tag_name = ltrim($tag_name, '#')) {
-                        continue;
-                    }
-
-                    $tag_name = mysqli_real_escape_string($link, $tag_name);
-                    $sql = "SELECT COUNT(*), id FROM hashtag WHERE name = '$tag_name'";
-                    $hashtag = get_mysqli_result($link, $sql, 'assoc');
-                    mysqli_query($link, 'START TRANSACTION');
-
-                    if ($hashtag['COUNT(*)'] === '0') {
-                        $sql = "INSERT INTO hashtag SET name = '$tag_name'";
-                        $result1 = get_mysqli_result($link, $sql, false);
-                        $hashtag_id = mysqli_insert_id($link);
-                    } else {
-                        $hashtag_id = $hashtag['id'];
-                    }
-
-                    $sql = "INSERT INTO post_hashtag (hashtag_id, post_id) VALUES ($hashtag_id, $post_id)";
-                    $result2 = get_mysqli_result($link, $sql, false);
-
-                    if (($result1 ?? true) && $result2) {
-                        mysqli_query($link, 'COMMIT');
-                    } else {
-                        mysqli_query($link, 'ROLLBACK');
-                    }
+                    validate_hashtag($link, $tag_name, $post_id);
                 }
             }
 
-            $sql = "SELECT * FROM user u "
-                 . "INNER JOIN subscription s ON s.author_id = u.id "
+            $user_fields = 'u.id, u.dt_add, u.email, u.login, u.password, u.avatar_path';
+            $sql = "SELECT $user_fields FROM user u "
+                 . 'INNER JOIN subscription s ON s.author_id = u.id '
                  . "WHERE s.user_id = {$_SESSION['user']['id']}";
 
             if ($users = get_mysqli_result($link, $sql)) {
@@ -201,8 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(500);
         exit;
 
-    } elseif (isset($input['image-path']) && file_exists($input['image-path'])) {
-        unlink($input['image-path']);
+    } elseif (isset($input['image-path'])) {
+        delete_file($input['image-path']);
     }
 }
 

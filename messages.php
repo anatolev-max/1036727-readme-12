@@ -3,13 +3,18 @@
 require_once('init.php');
 
 if (!isset($_SESSION['user'])) {
-    header('Location: /index.php');
+    $url = $_SERVER['REQUEST_URI'] ?? '/messages.php';
+    $expires = strtotime('+30 days');
+    setcookie('login_ref', $url, $expires);
+
+    header('Location: /');
     exit;
 }
 
 $user_id = intval($_SESSION['user']['id']);
 
-$sql = 'SELECT i.* FROM input i '
+$input_fields = 'i.id, i.label, i.type, i.name, i.placeholder, i.required';
+$sql = "SELECT $input_fields FROM input i "
      . 'INNER JOIN form_input fi ON fi.input_id = i.id '
      . 'INNER JOIN form f ON f.id = fi.form_id '
      . "WHERE f.name = 'messages'";
@@ -32,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $contact_id = validate_user($link, intval($input['contact-id']));
 
         if ($contact_id === $user_id
-            || !get_subscription_status($link, $contact_id)) {
+            || !is_contact_valid($link, $contact_id)) {
             http_response_code(500);
             exit;
         }

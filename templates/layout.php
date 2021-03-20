@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html style="scroll-behavior: smooth;" lang="ru">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -25,7 +25,7 @@
         <form class="header__search-form form" action="/search.php" method="get">
             <div class="header__search">
                 <label class="visually-hidden">Поиск</label>
-                <input class="header__search-input form__input" type="search" name="q" value="<?= $_GET['q'] ?? '' ?>">
+                <input class="header__search-input form__input" type="search" name="q" value="<?= esc($_GET['q'] ?? '') ?>">
                 <button class="header__search-button button" type="submit">
                     <svg class="header__search-icon" width="18" height="18">
                         <use xlink:href="#icon-search"></use>
@@ -61,15 +61,15 @@
                 <ul class="header__user-nav">
                     <li class="header__profile">
                         <?php $profile_url = "/profile.php?id={$_SESSION['user']['id']}&tab=posts"; ?>
-                        <a class="header__profile-link" href="<?= $profile_url ?>">
+                        <a class="header__profile-link" href="<?= esc($profile_url) ?>">
                             <div class="header__avatar-wrapper">
                                 <?php if (!empty($_SESSION['user']['avatar_path'])): ?>
                                 <?php $style = 'width: 40px; height: 40px; object-fit: cover;'; ?>
-                                <img style="<?= $style ?>" class="header__profile-avatar" src="uploads/<?= $_SESSION['user']['avatar_path'] ?>" alt="Аватар профиля">
+                                <img style="<?= $style ?>" class="header__profile-avatar" src="uploads/<?= esc($_SESSION['user']['avatar_path']) ?>" alt="Аватар профиля">
                                 <?php endif; ?>
                             </div>
                             <div class="header__profile-name">
-                                <span><?= $_SESSION['user']['login'] ?></span>
+                                <span><?= esc($_SESSION['user']['login']) ?></span>
                                 <svg class="header__link-arrow" width="10" height="6">
                                     <use xlink:href="#icon-arrow-right-ad"></use>
                                 </svg>
@@ -79,7 +79,7 @@
                             <div class="header__profile-tooltip">
                                 <ul class="header__profile-nav">
                                     <li class="header__profile-nav-item">
-                                        <a class="header__profile-nav-link" href="<?= $profile_url ?>">
+                                        <a class="header__profile-nav-link" href="<?= esc($profile_url) ?>">
                                             <span class="header__profile-nav-text">Мой профиль</span>
                                         </a>
                                     </li>
@@ -102,7 +102,7 @@
                         </div>
                     </li>
                     <li>
-                        <a class="header__post-button button button--transparent" href="/add.php?tab=photo">Пост</a>
+                        <a class="header__post-button button button--transparent" href="/add.php?tab=text">Пост</a>
                     </li>
                 </ul>
                 <?php else: ?>

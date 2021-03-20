@@ -23,25 +23,28 @@ $result = get_mysqli_result($link, $sql, false);
 
 if (!mysqli_num_rows($result)) {
     $sql = "INSERT INTO subscription (author_id, user_id) VALUES ($user_id, $profile_id)";
-    get_mysqli_result($link, $sql, false);
 
-    $sql = "SELECT * FROM user WHERE id = $profile_id";
-    $profile = get_mysqli_result($link, $sql, 'assoc');
+    if (get_mysqli_result($link, $sql, false)) {
+        $user_fields = 'id, dt_add, email, login, password, avatar_path';
+        $sql = "SELECT $user_fields FROM user WHERE id = $profile_id";
+        $profile = get_mysqli_result($link, $sql, 'assoc');
 
-    $transport = new Swift_SmtpTransport('phpdemo.ru', 25);
-    $transport->setUsername('keks@phpdemo.ru');
-    $transport->setPassword('htmlacademy');
+        $transport = new Swift_SmtpTransport('phpdemo.ru', 25);
+        $transport->setUsername('keks@phpdemo.ru');
+        $transport->setPassword('htmlacademy');
 
-    $message = new Swift_Message('У вас новый подписчик');
-    $message->setTo([$profile['email'] => $profile['login']]);
+        $message = new Swift_Message('У вас новый подписчик');
+        $message->setTo([$profile['email'] => $profile['login']]);
 
-    $body = "Здравствуйте, {$profile['login']}. На вас подписался новый пользователь {$_SESSION['user']['login']}. "
-          . "Вот ссылка на его профиль: http://readme.net/profile.php?id={$profile_id}";
-    $message->setBody($body);
-    $message->setFrom('keks@phpdemo.ru', 'Readme');
+        $body = "Здравствуйте, {$profile['login']}. "
+              . "На вас подписался новый пользователь {$_SESSION['user']['login']}. "
+              . "Вот ссылка на его профиль: http://readme.net/profile.php?id={$profile_id}";
+        $message->setBody($body);
+        $message->setFrom('keks@phpdemo.ru', 'Readme');
 
-    $mailer = new Swift_Mailer($transport);
-    $mailer->send($message);
+        $mailer = new Swift_Mailer($transport);
+        $mailer->send($message);
+    }
 
 } else {
     $sql = "DELETE FROM subscription WHERE author_id = $user_id AND user_id = $profile_id";
