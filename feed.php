@@ -18,11 +18,11 @@ $page_content = include_template('main.php', [
     'posts' => $posts
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: моя лента',
     'main_modifier' => 'feed',
     'page_content' => $page_content,
-    'messages_count' => $message_count
+    'message_count' => $message_count
 ]);
 
 print($layout_content);

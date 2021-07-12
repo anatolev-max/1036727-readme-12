@@ -13,8 +13,9 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = get_post_input('registration');
+    $errors = validate_form('registration', $input);
 
-    if (!$errors = validate_form('registration', $input)) {
+    if (!is_null($errors) && empty($errors)) {
         $input['passwd'] = get_password_hash($input['passwd']);
         $input['avatar-path'] = upload_avatar_file();
         $stmt_data = get_stmt_data($input, 'registration');
@@ -30,7 +31,7 @@ $page_content = include_template('register.php', [
     'inputs' => $form_inputs
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: регистрация',
     'main_modifier' => 'registration',
     'page_content' => $page_content

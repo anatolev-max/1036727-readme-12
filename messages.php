@@ -19,8 +19,9 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = get_post_input('messages');
+    $errors = validate_form('messages', $input);
 
-    if (!$errors = validate_form('messages', $input)) {
+    if (!is_null($errors) && empty($errors)) {
         $contact_id = $input['contact-id'];
         $message = cut_out_extra_spaces($input['message']);
         $stmt_data = [$message, $user_id, $contact_id];
@@ -66,11 +67,11 @@ $page_content = include_template('messages.php', [
     'inputs' => $form_inputs
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: личные сообщения',
     'main_modifier' => 'messages',
     'page_content' => $page_content,
-    'messages_count' => $message_count
+    'message_count' => $message_count
 ]);
 
 print($layout_content);

@@ -96,11 +96,11 @@ $page_content = include_template('popular.php', [
     'pages_count' => $pages_count
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: популярное',
     'main_modifier' => 'popular',
     'page_content' => $page_content,
-    'messages_count' => $message_count
+    'message_count' => $message_count
 ]);
 
 print($layout_content);

@@ -26,9 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = get_post_input('adding-post');
 
     if (Database::getInstance()->isContentTypeValid($input['content-type'] ?? '')) {
+        $form_name = "adding-post-{$input['content-type']}";
+        $errors = validate_form($form_name, $input);
 
-        $form_name = "adding-post__{$input['content-type']}";
-        if (!$errors = validate_form($form_name, $input)) {
+        if (!is_null($errors) && empty($errors)) {
             if ($input['content-type'] === 'text') {
                 $input['text-content'] = cut_out_extra_spaces($input['post-text']);
             } elseif ($input['content-type'] === 'quote') {
@@ -43,10 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_data += [$user_id, 0, null, $ctype_id];
             $post_id = Database::getInstance()->insertPost($stmt_data);
 
-            if ($tags = array_filter(explode(' ', $input['tags']))) {
-                foreach ($tags as $tag_name) {
-                    Database::getInstance()->validateHashtag($tag_name, $post_id);
-                }
+            if ($hashtags = explode(' ', $input['tags'])) {
+                process_post_hashtags($hashtags, $post_id);
             }
 
             if ($subscribers = Database::getInstance()->getSubscribers()) {
@@ -72,11 +71,11 @@ $page_content = include_template('add.php', [
     'inputs' => $form_inputs
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: добавление публикации',
     'main_modifier' => 'adding-post',
     'page_content' => $page_content,
-    'messages_count' => $message_count
+    'message_count' => $message_count
 ]);
 
 print($layout_content);

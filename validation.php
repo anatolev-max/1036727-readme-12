@@ -1,149 +1,65 @@
 <?php
 
 const FORM_TYPES = [
-    'adding-post__photo' => [
-        [
-            'heading',
-            'Заголовок',
-            ['validate_filled']
-        ],
-        [
-            'file-photo',
-            'Изображение',
-            ['validate_image_file']
-        ]
+    'adding-post-photo' => [
+        'heading:Заголовок' => 'required',
+        'file-photo:Изображение' => 'image'
     ],
-    'adding-post__video' => [
-        [
-            'heading',
-            'Заголовок',
-            ['validate_filled']
-        ],
-        [
-            'video-url',
-            'Ссылка youtube',
-            ['validate_youtube_url', 'validate_url', 'validate_filled']
-        ]
+    'adding-post-video' => [
+        'heading:Заголовок' => 'required',
+        'video-url:Ссылка youtube' => 'youtube|url|required'
     ],
-    'adding-post__text' => [
-        [
-            'heading',
-            'Заголовок',
-            ['validate_filled']
-        ],
-        [
-            'post-text',
-            'Текст поста',
-            ['validate_filled']
-        ]
+    'adding-post-text' => [
+        'heading:Заголовок' => 'required',
+        'post-text:Текст поста' => 'required'
     ],
-    'adding-post__quote' => [
-        [
-            'heading',
-            'Заголовок',
-            ['validate_filled']
-        ],
-        [
-            'cite-text',
-            'Текст цитаты',
-            ['validate_filled']
-        ],
-        [
-            'quote-author',
-            'Автор',
-            ['validate_filled']
-        ]
+    'adding-post-quote' => [
+        'heading:Заголовок' => 'required',
+        'cite-text:Текст цитаты' => 'required',
+        'quote-author:Автор' => 'required'
     ],
-    'adding-post__link' => [
-        [
-            'heading',
-            'Заголовок',
-            ['validate_filled']
-        ],
-        [
-            'post-link',
-            'Ссылка',
-            ['validate_url', 'validate_filled']
-        ]
+    'adding-post-link' => [
+        'heading:Заголовок' => 'required',
+        'post-link:Ссылка' => 'url|required'
     ],
     'registration' => [
-        [
-            'email',
-            'Электронная почта',
-            ['is_email_exist', 'validate_email', 'validate_filled']
-        ],
-        [
-            'login',
-            'Логин',
-            ['validate_filled']
-        ],
-        [
-            'passwd',
-            'Пароль',
-            ['validate_filled']
-        ],
-        [
-            'passwd-repeat',
-            'Повтор пароля',
-            ['compare_password', 'validate_filled']
-        ],
-        [
-            'avatar',
-            'Изображение',
-            ['validate_avatar_file']
-        ]
+        'email:Электронная почта' => 'unique|email|required',
+        'login:Логин' => 'required',
+        'passwd:Пароль' => 'required',
+        'passwd-repeat:Повтор пароля' => 'same:passwd|required',
+        'avatar:Изображение' => 'avatar'
     ],
     'login' => [
-        [
-            'email',
-            'Электронная почта',
-            ['validate_email', 'validate_filled']
-        ],
-        [
-            'passwd',
-            'Пароль',
-            ['validate_filled']
-        ]
+        'email:Электронная почта' => 'email|required',
+        'passwd:Пароль' => 'required'
     ],
     'comments' => [
-        [
-            'comment',
-            'Ваш комментарий',
-            ['validate_comment_length', 'validate_filled']
-        ],
-        [
-            'post-id',
-            null,
-            ['is_post_exist']
-        ]
+        'comment:Ваш комментарий' => 'minLength:4|required',
+        'post-id:' => 'exists:post'
     ],
     'messages' => [
-        [
-            'message',
-            'Ваше сообщение',
-            ['validate_filled']
-        ],
-        [
-            'contact-id',
-            null,
-            ['validate_contact', 'is_user_exist']
-        ]
+        'message:Ваше сообщение' => 'required',
+        'contact-id:' => 'contact|exists:user'
     ]
 ];
 
-function validate_form(string $form_type, array $post_data): array {
-    if (!$form_fields = FORM_TYPES[$form_type] ?? []) {
-        return [true];
+function validate_form(string $form_type, array $post_data)
+{
+    if (!$validation_rules_list = FORM_TYPES[$form_type] ?? []) {
+        return null;
     }
 
     $errors = [];
 
-    foreach ($form_fields as $form_field) {
-        list($field_name, $field_label, $validation_rules) = $form_field;
+    foreach ($validation_rules_list as $form_field => $validation_rules) {
+        list($field_name, $field_label) = explode(':', $form_field);
         $value = $post_data[$field_name] ?? '';
 
-        foreach ($validation_rules as $validation_rule) {
-            if ($error = $validation_rule($value, $post_data)) {
+        foreach (explode('|', $validation_rules) as $validation_rule) {
+            $validation_rule = explode(':', $validation_rule);
+            $options = [$post_data, $validation_rule[1] ?? null];
+
+            if ($error = $validation_rule[0]($value, $options)) {
                 $errors[$field_name][0] = $error;
                 $errors[$field_name][1] = $field_label;
             }
@@ -153,81 +69,115 @@ function validate_form(string $form_type, array $post_data): array {
     return $errors;
 }
 
-function validate_filled(string $value, array $post_data) {
+function required(string $value, array $options)
+{
     if (mb_strlen($value) === 0) {
-        return 'Это поле должно быть заполнено';
+        $error = 'Это поле должно быть заполнено';
     }
+
+    return $error ?? null;
 }
 
-function validate_email(string $value, array $post_data) {
+function email(string $value, array $options)
+{
     if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-        return 'E-mail введён некорректно';
+        $error = 'E-mail введён некорректно';
     }
+
+    return $error ?? null;
 }
 
-function validate_url(string $value, array $post_data) {
+function url(string $value, array $options)
+{
     if (filter_var($value, FILTER_VALIDATE_URL)) {
-        return 'Некорректный url-адрес';
+        $error = 'Некорректный url-адрес';
     }
+
+    return $error ?? null;
 }
 
-function validate_youtube_url(string $value, array $post_data) {
+function youtube(string $value, array $options)
+{
     if (strpos($value, 'youtube.com/watch?v=') === false) {
-        return 'Некорректный url-адрес';
+        $error = 'Некорректный url-адрес';
     }
+
+    return $error ?? null;
 }
 
-function validate_comment_length(string $value, array $post_data) {
-    if (mb_strlen($value) < 4) {
-        return 'Длина комментария не должна быть меньше четырёх символов';
+function minLength(string $value, array $options)
+{
+    if (isset($options[1]) && (mb_strlen($value) < intval($options[1]))) {
+        $error = "Значение должно быть от {$options[1]} символов";
     }
+
+    return $error ?? null;
 }
 
-function is_post_exist(string $value, array $post_data) {
-    if (!Database::getInstance()->isPostValid($value)) {
-        return true;
+function exists(string $value, array $options)
+{
+    if (isset($options[1]) && in_array($options[1], ['post', 'user'])) {
+        $method = 'is' . ucfirst($options[1]) . 'Valid';
+        $method_exist = method_exists('Database', $method);
+
+        if ($method_exist && !Database::getInstance()->$method($value)) {
+            $error = true;
+        }
     }
+
+    return $error ?? null;
 }
 
-function is_user_exist(string $value, array $post_data) {
-    if (!Database::getInstance()->isUserValid($value)) {
-        return true;
-    }
-}
-
-function validate_contact(string $value, array $post_data) {
+function contact(string $value, array $options)
+{
     if (!Database::getInstance()->isContactValid($value)) {
-        return true;
+        $error = true;
     }
+
+    return $error ?? null;
 }
 
-function is_email_exist(string $value, array $post_data) {
+function unique(string $value, array $options)
+{
     if (Database::getInstance()->isEmailExist($value)) {
-        return 'Пользователь с этим email уже зарегистрирован';
+        $error = 'Пользователь с этим email уже зарегистрирован';
     }
+
+    return $error ?? null;
 }
 
-function compare_password(string $value, array $post_data) {
-    if ($value !== ($post_data['passwd'] ?? '')) {
-        return 'Пароли не совпадают';
+function same(string $value, array $options)
+{
+    if (isset($options[0], $options[1])) {
+        list($post_data, $key) = $options;
+
+        if ($value !== ($post_data[$key] ?? '')) {
+            $error = 'Пароли не совпадают';
+        }
     }
+
+    return $error ?? null;
 }
 
-function validate_avatar_file(string $value, array $post_data, int $max_size = 1) {
+function avatar(string $value, array $options, int $max_size = 1)
+{
     if (!empty($_FILES['avatar']['name'])) {
         $file_path = $_FILES['avatar']['tmp_name'];
         $file_size = $_FILES['avatar']['size'];
         $file_type = mime_content_type($file_path);
 
         if (!in_array($file_type, ACCEPT_MIME_TYPES)) {
-            return 'Неверный MIME-тип файла';
+            $error = 'Неверный MIME-тип файла';
         } elseif ($file_size > (BYTES_PER_MEGABYTE * $max_size)) {
-            return "Максимальный размер файла: {$max_size}Мб";
+            $error = "Максимальный размер файла: {$max_size}Мб";
         }
     }
+
+    return $error ?? null;
 }
 
-function validate_image_file(string $value, array $post_data, int $max_size = 1) {
+function image(string $value, array $options, int $max_size = 1)
+{
     if (!empty($_FILES['file-photo']['name'])) {
         $file_path = $_FILES['file-photo']['tmp_name'];
         $file_size = $_FILES['file-photo']['size'];

@@ -7,15 +7,24 @@
         <?php $style = !empty($posts) ? 'background-image: none;' : ''; ?>
         <div style="<?= $style ?>" class="feed__main-wrapper">
             <div class="feed__wrapper">
+
                 <?php foreach ($posts as $post): ?>
                     <article class="feed__post post post-<?= esc($post['class_name']) ?>">
                         <header class="post__header post__author">
                             <a class="post__author-link" href="/profile.php?id=<?= $post['author_id'] ?>&tab=posts" title="Автор">
                                 <div class="post__avatar-wrapper">
+
                                     <?php if (!empty($post['avatar_path'])): ?>
-                                        <img style="width: 60px; height: 60px; object-fit: cover;"
-                                            class="post__author-avatar" src="uploads/<?= esc($post['avatar_path']) ?>" width="60" height="60" alt="Аватар пользователя">
+                                        <img
+                                            style="width: 60px; height: 60px; object-fit: cover;"
+                                            class="post__author-avatar"
+                                            src="uploads/<?= esc($post['avatar_path']) ?>"
+                                            width="60"
+                                            height="60"
+                                            alt="Аватар пользователя"
+                                        >
                                     <?php endif; ?>
+
                                 </div>
                                 <div class="post__info">
                                     <b class="post__author-name"><?= esc($post['author']) ?></b>
@@ -30,19 +39,19 @@
 
                             <?php $post['display_mode'] = 'feed'; ?>
                             <?php if ($post['class_name'] === 'quote'): ?>
-                                <?= include_template('inc/post-quote.php', ['post' => $post]) ?>
+                                <?= include_template('_partials/post-quote.php', ['post' => $post]) ?>
 
                             <?php elseif ($post['class_name'] === 'link'): ?>
-                                <?= include_template('inc/post-link.php', ['post' => $post]) ?>
+                                <?= include_template('_partials/post-link.php', ['post' => $post]) ?>
 
                             <?php elseif ($post['class_name'] === 'photo'): ?>
-                                <?= include_template('inc/post-photo.php', ['post' => $post]) ?>
+                                <?= include_template('_partials/post-photo.php', ['post' => $post]) ?>
 
                             <?php elseif ($post['class_name'] === 'video'): ?>
-                                <?= include_template('inc/post-video.php', ['post' => $post]) ?>
+                                <?= include_template('_partials/post-video.php', ['post' => $post]) ?>
 
                             <?php elseif ($post['class_name'] === 'text'): ?>
-                                <?= include_template('inc/post-text.php', ['post' => $post]) ?>
+                                <?= include_template('_partials/post-text.php', ['post' => $post]) ?>
                             <?php endif; ?>
                         </div>
                         <footer style="flex-direction: column;" class="post__footer post__indicators">
@@ -73,16 +82,21 @@
                                     <span class="visually-hidden">количество репостов</span>
                                 </a>
                             </div>
+
                             <?php if (!empty($post['hashtags'])): ?>
                                 <ul style="margin: 0 0 0 -3px; padding: 23px 0 0 0;" class="post__tags">
+
                                     <?php foreach ($post['hashtags'] as $hashtag): ?>
                                         <li><a href="/search.php?q=%23<?= esc($hashtag['name']) ?>">#<?= esc($hashtag['name']) ?></a></li>
                                     <?php endforeach; ?>
+
                                 </ul>
                             <?php endif; ?>
+
                         </footer>
                     </article>
                 <?php endforeach; ?>
+
             </div>
         </div>
         <ul class="feed__filters filters">
@@ -92,6 +106,7 @@
                     <span>Все</span>
                 </a>
             </li>
+
             <?php foreach ($content_types as $type): ?>
                 <li class="feed__filters-item filters__item">
                     <?php $classname = isset($_GET['filter']) && $_GET['filter'] === $type['class_name'] ? ' filters__button--active' : ''; ?>
@@ -103,6 +118,7 @@
                     </a>
                 </li>
             <?php endforeach; ?>
+
         </ul>
     </section>
     <aside class="promo">

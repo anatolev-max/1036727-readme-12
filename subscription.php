@@ -29,7 +29,7 @@ if (!Database::getInstance()->isSubscription([$user_id, $profile_id])) {
 
         $message = new Swift_Message('У вас новый подписчик');
         $message->setTo([$subscriber['email'] => $subscriber['login']]);
-        $body = include_template('templates/subscriber-notice.php', [
+        $body = include_template('notifications/subscriber.php', [
             'recipient' => $subscriber
         ]);
         $message->setBody($body);

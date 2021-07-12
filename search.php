@@ -56,11 +56,11 @@ $page_content = include_template('search.php', [
     'posts' => $posts
 ]);
 
-$layout_content = include_template('layout.php', [
+$layout_content = include_template('layouts/base.php', [
     'title' => 'readme: страница результатов поиска',
     'main_modifier' => 'search-results',
     'page_content' => $page_content,
-    'messages_count' => $message_count
+    'message_count' => $message_count
 ]);
 
 print($layout_content);
